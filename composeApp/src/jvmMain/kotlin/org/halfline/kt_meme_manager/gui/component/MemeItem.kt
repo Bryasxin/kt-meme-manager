@@ -10,6 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
@@ -22,7 +23,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.halfline.kt_meme_manager.core.Meme
 import java.awt.Toolkit
-import java.awt.datatransfer.StringSelection
 import java.io.File
 import javax.imageio.ImageIO
 
@@ -57,18 +57,28 @@ fun MemeItem(
                 isHovered = false
             }
             .clickable {
-                // 复制文件路径到剪贴板
-                val clipboard = Toolkit.getDefaultToolkit().systemClipboard
-                val selection = StringSelection(meme.file.absolutePath)
-                clipboard.setContents(selection, null)
+                // 复制图片到剪贴板
+                coroutineScope.launch(Dispatchers.IO) {
+                    try {
+                        imageBitmap?.let { bitmap ->
+                            val clipboard = Toolkit.getDefaultToolkit().systemClipboard
+                            val transferable = ImageTransferable(bitmap.toAwtImage())
+                            clipboard.setContents(transferable, null)
 
-                // 设置复制状态用于UI反馈
-                isCopied = true
+                            // 设置复制状态用于UI反馈
+                            withContext(Dispatchers.Main) {
+                                isCopied = true
 
-                // 延迟重置复制状态
-                coroutineScope.launch {
-                    kotlinx.coroutines.delay(1000)
-                    isCopied = false
+                                // 延迟重置复制状态
+                                launch {
+                                    kotlinx.coroutines.delay(1000)
+                                    isCopied = false
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        // 静默处理异常
+                    }
                 }
             },
         elevation = CardDefaults.cardElevation(
